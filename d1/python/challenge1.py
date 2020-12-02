@@ -5,7 +5,7 @@ def get_answer(entries):
                 return entries[i] * entries[j]
 
 
-f = open('d1\input.txt')
+f = open('d1\\input.txt')
 entries = list(map(lambda x: int(x.strip()), f.readlines()))
 answer = get_answer(entries)
 
