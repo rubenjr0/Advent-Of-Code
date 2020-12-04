@@ -49,4 +49,4 @@ f = open('2020\\d4\\input.txt')
 data = f.read().split('\n\n')
 passports = [d.replace('\n', ' ') for d in data]
 
-print(len([passport for passport in passports if validate_passport(passport)]))
+print(f'{len([passport for passport in passports if validate_passport(passport)])} valid passports')

@@ -20,5 +20,5 @@ trees = []
 for slope in slopes:
     trees.append(count_trees(data, slope, 0, 0, 0))
     prod *= trees[-1]
-    print('Encoutered {} trees using the slope {}'.format(trees[-1], slope))
+    print(f'Encoutered {trees[-1]} trees using the slope {slope}')
 print(prod)
