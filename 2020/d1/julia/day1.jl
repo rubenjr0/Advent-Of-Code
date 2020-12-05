@@ -22,8 +22,8 @@ data = open("2020\\d1\\input.txt") do f
     parse.(Int32, readlines(f))
 end
 
-a1, a2 = find_pair_sum_to(data, 2020)
-b1, b2, b3 = find_triplet(data, 2020)
+a1 = find_pair_sum_to(data, 2020)
+a2 = find_triplet(data, 2020)
 
-println("($a1, $a2) -> $(a1 * b1)")
-println("($b1, $b2, $b3) -> $(b1 * b2 * b3)")
+println("$a1 -> $(prod(a1))")
+println("$a2 -> $(prod(a2))")
