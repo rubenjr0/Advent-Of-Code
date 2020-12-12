@@ -169,8 +169,11 @@ data = open("2020\\d11\\input.txt") do f
     split.(readlines(f), "")
 end;
 
-@time final1 = find_final_config_part_1(data)
-println(count_occupied(final1))
+t1 = @elapsed final_part_1 = find_final_config_part_1(data)
+occupied_part_1 = count_occupied(final_part_1)
+println("Occupied seats in part 1: $occupied_part_1 (Done in $(t1)s)")
 
-@time final2 = find_final_config_part_2(data)
-println(count_occupied(final2))
+t2 = @elapsed final_part_2 = find_final_config_part_2(data)
+occupied_part_2 = count_occupied(final_part_2)
+println("Occupied seats in part 2: $occupied_part_2 (Done in $(t2)s)")
+println("Finished in $(t1 + t2)s")
