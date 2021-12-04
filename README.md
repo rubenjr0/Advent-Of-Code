@@ -23,15 +23,15 @@ Example:
 - 2020
   - day-1
     - build
-      * rust
-      * crystal
+      * `rust`
+      * `crystal`
     * `python.py`
     * `rust.rs`
     * `crystal.cr`
     * `input`
   - day-2
     - build
-      * rust
+      * `rust`
     * `python.py`
     * `rust.rs`
     * `julia.jl`
