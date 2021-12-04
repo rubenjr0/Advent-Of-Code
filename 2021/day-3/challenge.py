@@ -39,7 +39,7 @@ def bin_to_dec(bits, inv=False):
     return num
 
 
-data = read_file('2021/day-3/input')
+data = read_file('input')
 cols = get_all_columns(data)
 
 most_common_bits = list(map(get_common_bit, cols))
