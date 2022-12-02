@@ -49,10 +49,12 @@ impl Strategy {
         for (rival, me) in &self.moves {
             let result = GameResult::evaluate(&me, &rival);
             let score = *me as u16 + result as u16;
+            /*
             println!(
                 "{me:?} vs {rival:?}: {result:?} [{:6>} + {score}]",
                 self.score
-            );
+             );
+             */
             self.score += score;
         }
     }
