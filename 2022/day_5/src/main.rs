@@ -35,8 +35,8 @@ impl Display for Instruction {
         write!(
             f,
             "Moving {} from {} to {}",
-            format!("{}", self.quantity).bold().blue(),
-            format!("{}", self.from).bold().cyan(),
+            format!("{}", self.quantity).bold().yellow(),
+            format!("{}", self.from).bold().blue(),
             format!("{}", self.to).bold().red(),
         )
     }
@@ -58,11 +58,11 @@ impl Crane {
 
     fn run_instructions_one(&mut self) -> String {
         for instruction in self.instructions.iter() {
+            visualize_state(&self.stacks, &instruction);
             for _ in 0..instruction.quantity {
                 let datum = self.stacks[instruction.from - 1].pop().unwrap();
                 self.stacks[instruction.to - 1].push(datum);
             }
-            visualize_state(&self.stacks, &instruction);
         }
         self.stacks.iter().map(|s| s.last().unwrap()).collect()
     }
@@ -120,7 +120,7 @@ fn visualize_state(state: &State, instruction: &Instruction) {
                 print!(
                     "{}",
                     if idx + 1 == instruction.from && column.len() - instruction.quantity <= r {
-                        text.bold().blue()
+                        text.bold().yellow()
                     } else {
                         text
                     }
@@ -136,7 +136,7 @@ fn visualize_state(state: &State, instruction: &Instruction) {
         print!(
             "{}",
             if i == instruction.from {
-                i_txt.cyan()
+                i_txt.blue()
             } else if i == instruction.to {
                 i_txt.red()
             } else {
@@ -145,7 +145,7 @@ fn visualize_state(state: &State, instruction: &Instruction) {
         );
     }
     println!("\n{instruction}");
-    thread::sleep(Duration::from_millis(150));
+    thread::sleep(Duration::from_millis(1500));
     println!();
 }
 
