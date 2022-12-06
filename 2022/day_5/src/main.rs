@@ -1,4 +1,11 @@
-use std::time::Instant;
+use colorful::{self, Colorful};
+use std::{
+    fmt::Display,
+    thread,
+    time::{Duration, Instant},
+};
+
+type State = Vec<Vec<char>>;
 
 #[derive(Debug)]
 struct Instruction {
@@ -23,9 +30,21 @@ impl Instruction {
     }
 }
 
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Moving {} from {} to {}",
+            format!("{}", self.quantity).bold().blue(),
+            format!("{}", self.from).bold().cyan(),
+            format!("{}", self.to).bold().red(),
+        )
+    }
+}
+
 #[derive(Debug)]
 struct Crane {
-    stacks: Vec<Vec<char>>,
+    stacks: State,
     instructions: Vec<Instruction>,
 }
 
@@ -43,6 +62,7 @@ impl Crane {
                 let datum = self.stacks[instruction.from - 1].pop().unwrap();
                 self.stacks[instruction.to - 1].push(datum);
             }
+            visualize_state(&self.stacks, &instruction);
         }
         self.stacks.iter().map(|s| s.last().unwrap()).collect()
     }
@@ -66,7 +86,7 @@ fn get_cols(s: &str) -> Vec<usize> {
         .collect()
 }
 
-fn build_stacks(crates: &str) -> Vec<Vec<char>> {
+fn build_stacks(crates: &str) -> State {
     let number_stacks: usize = crates
         .lines()
         .last()
@@ -74,7 +94,7 @@ fn build_stacks(crates: &str) -> Vec<Vec<char>> {
         .split_whitespace()
         .flat_map(|c| c.parse::<u8>())
         .count();
-    let mut stacks: Vec<Vec<char>> = vec![vec![]; number_stacks];
+    let mut stacks: State = vec![vec![]; number_stacks];
     crates
         .lines()
         .take(crates.lines().count() - 1)
@@ -86,6 +106,47 @@ fn build_stacks(crates: &str) -> Vec<Vec<char>> {
                 .for_each(|(c, idx)| stacks[idx].insert(0, c.chars().nth(1).unwrap()));
         });
     stacks
+}
+
+fn visualize_state(state: &State, instruction: &Instruction) {
+    print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+    let n_rows = state.iter().map(|c| c.len()).max().unwrap();
+    for row in 0..n_rows {
+        let r = n_rows - row;
+        for (idx, column) in state.iter().enumerate() {
+            let element = column.get(r);
+            if let Some(c) = element {
+                let text = format!("{c:5}").white();
+                print!(
+                    "{}",
+                    if idx + 1 == instruction.from && column.len() - instruction.quantity <= r {
+                        text.bold().blue()
+                    } else {
+                        text
+                    }
+                );
+            } else {
+                print!("     ");
+            }
+        }
+        println!();
+    }
+    for i in 1..=state.len() {
+        let i_txt = format!("{i:<5}").bold();
+        print!(
+            "{}",
+            if i == instruction.from {
+                i_txt.cyan()
+            } else if i == instruction.to {
+                i_txt.red()
+            } else {
+                i_txt.green()
+            }
+        );
+    }
+    println!("\n{instruction}");
+    thread::sleep(Duration::from_millis(150));
+    println!();
 }
 
 fn main() {
