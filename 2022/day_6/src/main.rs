@@ -2,12 +2,14 @@ use std::time::Instant;
 
 fn main() {
     let input = include_str!("../input.txt");
+
     let t = Instant::now();
     let packet_marker = find_marker(input, 4);
     let pm = t.elapsed();
+    println!("Packet marker: {packet_marker} ({pm:?})");
+
     let message_marker = find_marker(input, 14);
     let mm = t.elapsed() - pm;
-    println!("Packet marker: {packet_marker} ({pm:?})");
     println!("Message marker: {message_marker} ({mm:?})");
 }
 
