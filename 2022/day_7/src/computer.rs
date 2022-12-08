@@ -1,4 +1,4 @@
-use crate::filesystem::Filesystem;
+use crate::{filesystem::Filesystem, node::Node};
 
 enum Entry {
     Dir(String),
@@ -48,11 +48,12 @@ impl Computer {
         }
     }
 
-    pub fn small_directories_size(&self) -> usize {
-        self.filesystem.small_directories_size()
+    pub fn small_directories(&self) -> Vec<&Node> {
+        self.filesystem.small_directories()
     }
 
-    pub fn free_space(&self) -> usize {
-        self.free_space
+    pub fn deletion_candidate(&self) -> Option<&Node> {
+        self.filesystem
+            .deletion_candidate(30000000 - self.free_space)
     }
 }
