@@ -36,18 +36,18 @@ fn main() {
 
     println!();
 
-    print!("Part 2: ");
+    println!("Part 2: ");
     let deletion_candidate_time = Instant::now();
     let deletion_candidate = computer.deletion_candidate();
     let deletion_candidate_time = deletion_candidate_time.elapsed();
     if let Some(candidate) = deletion_candidate {
         print!(
-            "Deletion candidate: {} ({} bytes)",
+            " - Deletion candidate {} ({} bytes)",
             candidate.name(),
             candidate.size()
         );
     } else {
-        print!("No deletion candidate found");
+        print!("- No deletion candidate");
     }
     println!(" found in {deletion_candidate_time:?}");
 }
