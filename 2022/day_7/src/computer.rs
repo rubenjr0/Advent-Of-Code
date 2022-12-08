@@ -25,14 +25,14 @@ impl Entry {
 #[derive(Debug)]
 pub struct Computer {
     filesystem: Filesystem,
-    available: usize,
+    free_space: usize,
 }
 
 impl Computer {
     pub fn new() -> Computer {
         Computer {
             filesystem: Filesystem::new(),
-            available: 70000000,
+            free_space: 70000000,
         }
     }
 
@@ -41,7 +41,10 @@ impl Computer {
         match entries {
             Entry::Cd(dir) => self.filesystem.cd(&dir),
             Entry::Dir(dir) => self.filesystem.create_dir(&dir),
-            Entry::File(name, size) => self.filesystem.create_file(&name, size),
+            Entry::File(name, size) => {
+                self.filesystem.create_file(&name, size);
+                self.free_space -= size;
+            }
         }
     }
 
@@ -50,6 +53,6 @@ impl Computer {
     }
 
     pub fn free_space(&self) -> usize {
-        self.available - self.filesystem.size()
+        self.free_space
     }
 }
