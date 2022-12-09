@@ -23,7 +23,11 @@ pub fn count_visibles(matrix: &Matrix) -> usize {
     visible
 }
 
-fn above<'a>(matrix: &'a Matrix, row_idx: usize, col_idx: usize) -> impl Iterator<Item = u8> + 'a {
+fn above_iter<'a>(
+    matrix: &'a Matrix,
+    row_idx: usize,
+    col_idx: usize,
+) -> impl Iterator<Item = u8> + 'a {
     matrix
         .iter()
         .take(row_idx)
@@ -31,32 +35,44 @@ fn above<'a>(matrix: &'a Matrix, row_idx: usize, col_idx: usize) -> impl Iterato
         .rev()
 }
 
-fn right<'a>(matrix: &'a Matrix, row_idx: usize, col_idx: usize) -> impl Iterator<Item = u8> + 'a {
+fn right_iter<'a>(
+    matrix: &'a Matrix,
+    row_idx: usize,
+    col_idx: usize,
+) -> impl Iterator<Item = u8> + 'a {
     matrix[row_idx].iter().skip(col_idx + 1).map(|x| *x)
 }
 
-fn below<'a>(matrix: &'a Matrix, row_idx: usize, col_idx: usize) -> impl Iterator<Item = u8> + 'a {
+fn below_iter<'a>(
+    matrix: &'a Matrix,
+    row_idx: usize,
+    col_idx: usize,
+) -> impl Iterator<Item = u8> + 'a {
     matrix.iter().skip(row_idx + 1).map(move |row| row[col_idx])
 }
 
-fn left<'a>(matrix: &'a Matrix, row_idx: usize, col_idx: usize) -> impl Iterator<Item = u8> + 'a {
+fn left_iter<'a>(
+    matrix: &'a Matrix,
+    row_idx: usize,
+    col_idx: usize,
+) -> impl Iterator<Item = u8> + 'a {
     matrix[row_idx].iter().take(col_idx).map(|x| *x).rev()
 }
 
 fn visible_above(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> bool {
-    above(matrix, row_idx, col_idx).all(|x| x < *element)
+    above_iter(matrix, row_idx, col_idx).all(|x| x < *element)
 }
 
 fn visible_right(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> bool {
-    right(matrix, row_idx, col_idx).all(|x| x < *element)
+    right_iter(matrix, row_idx, col_idx).all(|x| x < *element)
 }
 
 fn visible_below(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> bool {
-    below(matrix, row_idx, col_idx).all(|x| x < *element)
+    below_iter(matrix, row_idx, col_idx).all(|x| x < *element)
 }
 
 fn visible_left(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> bool {
-    left(matrix, row_idx, col_idx).all(|x| x < *element)
+    left_iter(matrix, row_idx, col_idx).all(|x| x < *element)
 }
 
 pub fn best_scenic_score(matrix: &Matrix) -> usize {
@@ -91,17 +107,17 @@ fn viewing_distance(element: &u8, iter: impl Iterator<Item = u8>) -> usize {
 }
 
 fn viewing_distance_above(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> usize {
-    viewing_distance(element, above(matrix, row_idx, col_idx))
+    viewing_distance(element, above_iter(matrix, row_idx, col_idx))
 }
 
 fn viewing_distance_below(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> usize {
-    viewing_distance(element, below(matrix, row_idx, col_idx))
+    viewing_distance(element, below_iter(matrix, row_idx, col_idx))
 }
 
 fn viewing_distance_left(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> usize {
-    viewing_distance(element, left(matrix, row_idx, col_idx))
+    viewing_distance(element, left_iter(matrix, row_idx, col_idx))
 }
 
 fn viewing_distance_right(matrix: &Matrix, element: &u8, row_idx: usize, col_idx: usize) -> usize {
-    viewing_distance(element, right(matrix, row_idx, col_idx))
+    viewing_distance(element, right_iter(matrix, row_idx, col_idx))
 }
