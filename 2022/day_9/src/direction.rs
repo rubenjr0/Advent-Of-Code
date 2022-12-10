@@ -1,6 +1,6 @@
 use eyre::{eyre, Result};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Direction {
     Up,
     Down,

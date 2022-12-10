@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::movement::Direction;
+use crate::direction::Direction;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Point {
@@ -11,6 +11,10 @@ pub struct Point {
 impl Point {
     pub fn new() -> Point {
         Point { x: 0, y: 0 }
+    }
+
+    pub fn get_position(&self) -> (i16, i16) {
+        (self.x, self.y)
     }
 
     pub fn distance(&self, other: &Point) -> (i16, i16) {

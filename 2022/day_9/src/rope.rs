@@ -1,53 +1,68 @@
 use std::collections::BTreeSet;
 
-use crate::{movement::Direction, point::Point};
+use crate::{direction::Direction, point::Point};
 
 #[derive(Debug)]
 pub struct Rope {
-    head: Point,
-    tail: Point,
+    knots: Vec<Point>,
     visited: BTreeSet<(i16, i16)>,
 }
 
 impl Rope {
-    pub fn new() -> Rope {
+    pub fn new(knots: usize) -> Rope {
+        let mut visited = BTreeSet::new();
+        visited.insert((0, 0));
         Rope {
-            head: Point::new(),
-            tail: Point::new(),
-            visited: BTreeSet::new(),
+            knots: (0..knots).map(|_| Point::new()).collect(),
+            visited,
         }
     }
 
     pub fn apply_movement(&mut self, direction: &Direction, amount: i16) {
-        self.visited.insert((self.tail.x, self.tail.y));
         for _ in 0..amount {
-            self.head.move_in_direction(&direction);
-            self.update_tail(direction);
-            self.visited.insert((self.tail.x, self.tail.y));
+            self.update(direction);
+            self.visited
+                .insert(self.knots.last().unwrap().get_position());
         }
     }
 
-    fn update_tail(&mut self, direction: &Direction) {
-        let (dx, dy) = self.tail.distance(&self.head);
-        if dy == 0 && dx.abs() == 2 {
-            self.tail.move_in_direction(direction);
-        } else if dx == 0 && dy.abs() == 2 {
-            self.tail.move_in_direction(direction)
-        } else if dx.abs() + dy.abs() > 2 {
-            if dx < 0 {
-                self.tail.move_in_direction(&Direction::Right);
-            } else {
-                self.tail.move_in_direction(&Direction::Left);
-            }
-            if dy < 0 {
-                self.tail.move_in_direction(&Direction::Up);
-            } else {
-                self.tail.move_in_direction(&Direction::Down);
+    fn update(&mut self, direction: &Direction) {
+        self.knots[0].move_in_direction(direction);
+        for idx in 1..self.knots.len() {
+            let (dx, dy) = self
+                .knots
+                .get(idx)
+                .unwrap()
+                .distance(self.knots.get(idx - 1).unwrap());
+            let point = self.knots.get_mut(idx).unwrap();
+            if dy == 0 {
+                if dx < -1 {
+                    point.move_in_direction(&Direction::Right);
+                } else if dx > 1 {
+                    point.move_in_direction(&Direction::Left);
+                }
+            } else if dx == 0 {
+                if dy < -1 {
+                    point.move_in_direction(&Direction::Up);
+                } else if dy > 1 {
+                    point.move_in_direction(&Direction::Down);
+                }
+            } else if dx.abs() + dy.abs() > 2 {
+                if dx < 0 {
+                    point.move_in_direction(&Direction::Right);
+                } else {
+                    point.move_in_direction(&Direction::Left);
+                }
+                if dy < 0 {
+                    point.move_in_direction(&Direction::Up);
+                } else {
+                    point.move_in_direction(&Direction::Down);
+                }
             }
         }
     }
 
-    pub fn unique_visited(&self) -> usize {
-        self.visited.len()
+    pub fn visited(&self) -> &BTreeSet<(i16, i16)> {
+        &self.visited
     }
 }
