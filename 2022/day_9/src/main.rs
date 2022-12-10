@@ -66,9 +66,7 @@ mod tests {
             .for_each(|(direction, amount)| {
                 rope.apply_movement(&direction, amount);
             });
-        for p in rope.visited() {
-            println!("{p:?}");
-        }
+
         assert_eq!(rope.visited().len(), 36);
     }
 }

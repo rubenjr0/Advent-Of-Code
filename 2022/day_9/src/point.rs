@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::direction::Direction;
 
-#[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
+#[derive(Debug)]
 pub struct Point {
     pub x: i16,
     pub y: i16,

@@ -1,16 +1,16 @@
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 
 use crate::{direction::Direction, point::Point};
 
 #[derive(Debug)]
 pub struct Rope {
     knots: Vec<Point>,
-    visited: BTreeSet<(i16, i16)>,
+    visited: HashSet<(i16, i16)>,
 }
 
 impl Rope {
     pub fn new(knots: usize) -> Rope {
-        let mut visited = BTreeSet::new();
+        let mut visited = HashSet::new();
         visited.insert((0, 0));
         Rope {
             knots: (0..knots).map(|_| Point::new()).collect(),
@@ -62,7 +62,7 @@ impl Rope {
         }
     }
 
-    pub fn visited(&self) -> &BTreeSet<(i16, i16)> {
+    pub fn visited(&self) -> &HashSet<(i16, i16)> {
         &self.visited
     }
 }
