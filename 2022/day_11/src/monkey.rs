@@ -35,17 +35,14 @@ impl Monkey {
         self.starting_items.len()
     }
 
-    pub fn play_round(&mut self, relief: bool, bm: Option<usize>, _id: Id) -> Vec<(Id, Item)> {
+    pub fn play_round(&mut self, relief: bool, bm: usize, _id: Id) -> Vec<(Id, Item)> {
         #[cfg(feature = "debug")]
         println!("Monkey {} is playing", _id);
         let out = self
             .starting_items
             .iter()
             .map(|item| {
-                let mut worry = (self.operation)(*item);
-                if let Some(bm) = bm {
-                    worry = worry % bm;
-                }
+                let worry = (self.operation)(*item) % bm;
                 let new_worry = if relief { worry / 3 } else { worry };
                 let test = new_worry % self.modulus == 0;
                 let throw_to = (self.throw_decision)(test);

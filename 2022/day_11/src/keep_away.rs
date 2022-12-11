@@ -21,7 +21,7 @@ impl KeepAway {
         for id in 0..self.monkeys.len() {
             let monkey = &mut self.monkeys[id];
             self.inspections[id] += monkey.num_items();
-            let throws = monkey.play_round(relief, if relief { None } else { Some(self.bm) }, id);
+            let throws = monkey.play_round(relief, self.bm, id);
             for (throw_id, throw_item) in &throws {
                 self.monkeys[*throw_id].catch_item(*throw_item);
             }
