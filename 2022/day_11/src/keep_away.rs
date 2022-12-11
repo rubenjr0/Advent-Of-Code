@@ -1,4 +1,4 @@
-use crate::monkey::Monkey;
+use crate::monkey::{Item, Monkey};
 
 pub struct KeepAway {
     monkeys: Vec<Monkey>,
@@ -28,26 +28,15 @@ impl KeepAway {
         }
     }
 
-    pub fn simulate(&mut self, rounds: usize, relief: bool) -> usize {
+    pub fn simulate(&mut self, rounds: usize, relief: bool) -> Item {
         for _ in 0..rounds {
             self.play_round(relief);
         }
         self.monkey_business()
     }
 
-    pub fn monkey_business(&mut self) -> usize {
+    pub fn monkey_business(&mut self) -> Item {
         self.inspections.sort();
-        #[cfg(feature = "debug")]
-        println!("{:?}", self.inspections);
-        let mut nums = self.inspections.iter().rev().take(2);
-        let left = nums.next().unwrap();
-        let right = nums.next().unwrap();
-        let (n, ov) = left.overflowing_mul(*right);
-        if ov {
-            println!("OVER FLOW");
-        } else {
-            println!("GOOD");
-        }
-        n
+        self.inspections.iter().rev().take(2).product()
     }
 }

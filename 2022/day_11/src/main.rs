@@ -8,14 +8,14 @@ use monkey::Monkey;
 
 fn main() {
     let input = include_str!("../input.txt");
+    let parsing_time = Instant::now();
     let monkeys = input
         .split("\n\n")
         .map(|block| Monkey::parse(block))
         .collect();
-
-    let parsing_time = Instant::now();
-    let mut keep_away = KeepAway::new(monkeys);
     let _parsing_time = parsing_time.elapsed();
+
+    let mut keep_away = KeepAway::new(monkeys);
     let simulation_time = Instant::now();
     let monkey_business = keep_away.simulate(20, true);
     let _simulation_time = simulation_time.elapsed();
@@ -27,6 +27,7 @@ fn main() {
         println!(" - Simulation took {_simulation_time:?}");
     }
 
+    let parsing_time = Instant::now();
     let monkeys = input
         .split("\n\n")
         .map(|block| Monkey::parse(block))
