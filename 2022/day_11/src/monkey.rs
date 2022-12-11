@@ -1,14 +1,13 @@
-pub type Item = u128;
+pub type Item = usize;
 type Id = usize;
 
 type Operation = Box<dyn Fn(Item) -> Item>;
-type Test = Box<dyn Fn(Item) -> bool>;
 type Decision = Box<dyn Fn(bool) -> Id>;
 
 pub struct Monkey {
     starting_items: Vec<Item>,
     operation: Operation,
-    test: Test,
+    modulus: Item,
     throw_decision: Decision,
 }
 
@@ -17,31 +16,38 @@ impl Monkey {
         let mut lines = input.lines().skip(1);
         let starting_items = parse_items(lines.next().unwrap());
         let operation = parse_operation(lines.next().unwrap());
-        let test = parse_test(lines.next().unwrap());
+        let modulus = parse_modulus(lines.next().unwrap());
         let throw_decision = parse_throw_decision(lines.take(2).collect());
 
         Monkey {
             starting_items,
             operation,
-            test,
+            modulus,
             throw_decision,
         }
+    }
+
+    pub fn modulus(&self) -> usize {
+        self.modulus
     }
 
     pub fn num_items(&self) -> usize {
         self.starting_items.len()
     }
 
-    pub fn play_round(&mut self, relief: bool, _id: Id) -> Vec<(Id, Item)> {
+    pub fn play_round(&mut self, relief: bool, bm: Option<usize>, _id: Id) -> Vec<(Id, Item)> {
         #[cfg(feature = "debug")]
         println!("Monkey {} is playing", _id);
         let out = self
             .starting_items
             .iter()
             .map(|item| {
-                let worry = (self.operation)(*item);
+                let mut worry = (self.operation)(*item);
+                if let Some(bm) = bm {
+                    worry = worry % bm;
+                }
                 let new_worry = if relief { worry / 3 } else { worry };
-                let test = (self.test)(new_worry);
+                let test = new_worry % self.modulus == 0;
                 let throw_to = (self.throw_decision)(test);
                 #[cfg(feature = "debug")]
                 {
@@ -98,9 +104,8 @@ fn parse_operation(line: &str) -> Operation {
     Box::new(move |x| closure(x, if let Ok(y) = right { y } else { x }))
 }
 
-fn parse_test(line: &str) -> Test {
-    let n: Item = line.split_whitespace().last().unwrap().parse().unwrap();
-    Box::new(move |x| x % n == 0)
+fn parse_modulus(line: &str) -> Item {
+    line.split_whitespace().last().unwrap().parse().unwrap()
 }
 
 fn parse_throw_decision(lines: Vec<&str>) -> Decision {
@@ -127,7 +132,7 @@ mod tests {
         let monkey = Monkey {
             starting_items: vec![79, 98],
             operation: Box::new(|x| x * 19),
-            test: Box::new(|x| x % 23 == 0),
+            modulus: 23,
             throw_decision: Box::new(|x| if x { 2 } else { 3 }),
         };
 
@@ -148,9 +153,12 @@ mod tests {
 
         let parsed_tests: Vec<_> = parsed_operations
             .into_iter()
-            .map(parsed_monkey.test)
+            .map(|x| x % parsed_monkey.modulus == 0)
             .collect();
-        let tests: Vec<_> = operations.into_iter().map(monkey.test).collect();
+        let tests: Vec<_> = operations
+            .into_iter()
+            .map(|x| x % monkey.modulus == 0)
+            .collect();
 
         assert_eq!(parsed_tests, tests);
 
