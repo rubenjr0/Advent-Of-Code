@@ -10,15 +10,16 @@ pub struct HeightMap {
     grid: Grid,
     height: usize,
     width: usize,
-    starting_point: Coordinate,
-    ending_point: Coordinate,
+    objective: Coordinate,
     path: Vec<Coordinate>,
+    best_path: Option<Vec<Coordinate>>,
+    visited: Vec<Coordinate>,
 }
 
 impl HeightMap {
     pub fn parse(input: &str) -> Result<HeightMap> {
         let mut starting_point = None;
-        let mut ending_point = None;
+        let mut objective = None;
         let grid: Grid = input
             .lines()
             .enumerate()
@@ -30,7 +31,7 @@ impl HeightMap {
                             0
                         }
                         'E' => {
-                            ending_point = Some((row, col));
+                            objective = Some((row, col));
                             25
                         }
                         _ => c as u8 - 97,
@@ -38,90 +39,110 @@ impl HeightMap {
                     .collect()
             })
             .collect();
-            let starting_point = starting_point.unwrap();
-            let height = grid.len();
-            let width = grid[0].len();
-            Ok(HeightMap {
+        let height = grid.len();
+        let width = grid[0].len();
+        let starting_point = starting_point.unwrap();
+        Ok(HeightMap {
             grid,
             height,
             width,
-            starting_point,
-            ending_point: ending_point.unwrap(),
+            objective: objective.unwrap(),
             path: vec![starting_point],
+            best_path: None,
+            visited: vec![starting_point],
         })
     }
 
-    pub fn distance(&self, (x, y): &Coordinate) -> usize {
-        let (xf, yf) = self.ending_point;
-        x.abs_diff(xf) + y.abs_diff(yf)
+    pub fn distance_to_objective(&self, (y, x): &Coordinate) -> usize {
+        let (yf, xf) = self.objective;
+        y.abs_diff(yf) + x.abs_diff(xf)
     }
 
-    fn get_coordinate(&self, (x, y): &Coordinate) -> u8 {
+    fn get_coordinate(&self, (y, x): &Coordinate) -> u8 {
         self.grid[*y][*x]
     }
 
     fn can_move(&self, from: &Coordinate, to: &Coordinate) -> bool {
-        let x = self.get_coordinate(from);
-        let y = self.get_coordinate(to);
-        y <= x + 1
+        let a = self.get_coordinate(from);
+        let b = self.get_coordinate(to);
+        b <= a + 1
     }
 
     pub fn move_candidates(&self) -> Vec<(Coordinate, usize)> {
-        let last_position = self.path.last().unwrap();
+        let position = self.path.last().unwrap();
         let mut candidates = vec![];
-        if last_position.0 > 0 {
-            let p = (last_position.0 - 1, last_position.1);
-            if self.can_move(last_position, &p) {
+        if position.0 > 0 {
+            let p = (position.0 - 1, position.1);
+            if self.can_move(position, &p) {
                 candidates.push(p);
             }
         }
-        if last_position.0 < self.width - 1 {
-            let p = (last_position.0 + 1, last_position.1);
-            if self.can_move(last_position, &p) {
+        if position.0 < self.height - 1 {
+            let p = (position.0 + 1, position.1);
+            if self.can_move(position, &p) {
                 candidates.push(p);
             }
         }
-        if last_position.1 > 0 {
-            let p = (last_position.0, last_position.1 - 1);
-            if self.can_move(last_position, &p) {
+        if position.1 > 0 {
+            let p = (position.0, position.1 - 1);
+            if self.can_move(position, &p) {
                 candidates.push(p);
             }
         }
-        if last_position.1 < self.height - 1 {
-            let p = (last_position.0, last_position.1 + 1);
-            if self.can_move(last_position, &p) {
+        if position.1 < self.width - 1 {
+            let p = (position.0, position.1 + 1);
+            if self.can_move(position, &p) {
                 candidates.push(p);
             }
         }
-        let mut candidates: Vec<_> = candidates.into_iter().filter(|c| !self.path.contains(c)).map(|c| (c, self.distance(&c))).collect();
+        let mut candidates: Vec<_> = candidates
+            .into_iter()
+            .filter(|c| !(self.path.contains(c) || self.visited.contains(c)))
+            .map(|c| (c, self.distance_to_objective(&c)))
+            .collect();
         candidates.sort_by_key(|c| c.1);
         candidates
     }
 
-    pub fn backtrack(&mut self) -> bool {
-        let candidates= self.move_candidates();
-        // println!("Evaluating {candidates:?}");
-        for (candidate, distance) in candidates{
-            self.path.push(candidate);
-            if candidate == self.ending_point {
-                println!("SOLVED");
-                return true;
-            } 
-            if !self.backtrack() {
-                self.path.pop();
-            } else {
-                return true;
+    pub fn solve(&mut self) -> &Option<Vec<Coordinate>> {
+        self.backtrack();
+        &self.best_path
+    }
+
+    fn backtrack(&mut self) {
+        println!("{self}");
+        if self.path.last().unwrap() == &self.objective {
+            if self.best_path.is_none() || self.path.len() < self.best_path.as_ref().unwrap().len()
+            {
+                let mut best_path = self.path.clone();
+                best_path.pop();
+                self.best_path = Some(best_path);
             }
+            return;
         }
-        return false;
+        if self.best_path.is_some() && self.path.len() >= self.best_path.as_ref().unwrap().len() {
+            return;
+        }
+        let candidates = self.move_candidates();
+        for (candidate, _) in candidates {
+            self.path.push(candidate);
+            self.visited.push(candidate);
+            self.backtrack();
+            self.path.pop();
+        }
     }
 }
 
 impl Display for HeightMap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for row in &self.grid {
-            for col in row {
-                write!(f, "{col:3}")?
+        print!("{esc}[2J{esc}[1;1H", esc = 27 as char);
+        for (ri, row) in self.grid.iter().enumerate() {
+            for (ci, col) in row.iter().enumerate() {
+                if self.path.contains(&(ri, ci)) {
+                    write!(f, " # ")?;
+                    continue;
+                }
+                write!(f, " · ")?
             }
             writeln!(f, "")?
         }
