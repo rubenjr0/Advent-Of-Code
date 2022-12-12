@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 eyre = "0.6"
+pathfinding = "4.0.0"
+rayon = "1.6.1"
