@@ -9,3 +9,9 @@ edition = "2021"
 eyre = "0.6"
 pathfinding = "4.0.0"
 rayon = "1.6.1"
+
+[profile.release]
+lto = true
+strip = true
+opt-level = 3
+codegen-units = 1
