@@ -9,9 +9,14 @@ fn pad_depth(depth: usize) {
     }
 }
 
-fn compare_blocks(left: &Value, right: &Value, depth: usize) -> bool {
+#[derive(Debug, PartialEq)]
+enum Reason {
+    Ordering(bool),
+    Continue,
+}
+
+fn compare_blocks(left: &Value, right: &Value, depth: usize) -> Reason {
     pad_depth(depth);
-    println!("- Compare {left} vs {right}");
     if !left.is_array() || !right.is_array() {
         unreachable!("wtf")
     }
@@ -19,48 +24,42 @@ fn compare_blocks(left: &Value, right: &Value, depth: usize) -> bool {
     let right = right.as_array().unwrap();
     let mut idx = 0;
     loop {
-        // dbg!(left, right);
         let left = left.get(idx);
         let right = right.get(idx);
         if right.is_some() && left.is_none() {
-            return true;
+            return Reason::Ordering(true);
         }
         if right.is_none() && left.is_some() {
-            return false;
+            return Reason::Ordering(false);
         }
         if left.is_none() {
-            return false;
+            return Reason::Continue;
         }
         let left = left.unwrap();
         let right = right.unwrap();
         pad_depth(depth);
-        println!("  - Compare {left} vs {right}");
         if left.is_number() && right.is_number() {
             let left = left.as_u64().unwrap();
             let right = right.as_u64().unwrap();
             if left < right {
                 pad_depth(depth);
-                println!("    - Left side is smaller, so inputs are in the right order");
-                return true;
+                return Reason::Ordering(true);
             } else if left > right {
-                println!("    - Right side is smaller, so inputs are not in the right order");
-                return false;
+                return Reason::Ordering(false);
             }
         } else {
             if left.is_array() && !right.is_array() {
                 pad_depth(depth);
                 let right = &json!([right]);
-                println!("  - Mixed types; convert right to {right}");
                 return compare_blocks(left, right, depth + 1);
             } else if !left.is_array() && right.is_array() {
                 pad_depth(depth);
                 let left = &json!([left]);
-                println!("  - Mixed types");
-                println!("  - Mixed types; convert left to {left}");
                 return compare_blocks(left, right, depth + 1);
             } else {
-                if depth == 0 && compare_blocks(left, right, depth + 1) {
-                    return true;
+                match compare_blocks(left, right, depth + 1) {
+                    Reason::Ordering(o) => return Reason::Ordering(o),
+                    Reason::Continue => (),
                 }
             }
         }
@@ -90,10 +89,10 @@ fn main() -> Result<()> {
             let i = i + 1;
             println!("== Pair {i} ==");
             let c = compare_blocks(&b[0], &b[1], 0);
-            println!("== {c}\n");
+            println!("== {c:?}\n");
             (i, c)
         })
-        .filter(|(_, b)| *b)
+        .filter(|(_, b)| b == &Reason::Ordering(true))
         .map(|(i, _)| i)
         .sum::<usize>();
     let solution_time = solution_time.elapsed();
@@ -116,7 +115,7 @@ fn main() -> Result<()> {
 mod tests {
     use serde_json::Value;
 
-    use crate::compare_blocks;
+    use crate::{compare_blocks, Reason};
 
     #[test]
     fn part_one() {
@@ -130,7 +129,7 @@ mod tests {
             })
             .enumerate()
             .map(|(i, b)| (i + 1, compare_blocks(&b[0], &b[1], 0)))
-            .filter(|(_, b)| *b)
+            .filter(|(_, b)| b == &Reason::Ordering(true))
             .map(|(i, _)| i)
             .sum::<usize>();
         assert_eq!(output, 13);
