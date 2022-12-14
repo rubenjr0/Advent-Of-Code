@@ -1,16 +1,14 @@
 use std::time::{Duration, Instant};
 
-use infinite_scan::InfiniteScan;
+use scan::ScanType;
 
-use crate::{finite_scan::FiniteScan, scan::Scan};
+use crate::scan::Scan;
 
-mod finite_scan;
-mod infinite_scan;
 mod scan;
 
 fn part_one(input: &str) -> ((usize, Duration), Duration) {
     let build_time = Instant::now();
-    let scan = FiniteScan::new(input);
+    let scan = Scan::new(input, ScanType::Finite);
     let build_time = build_time.elapsed();
 
     (get_solution(scan), build_time)
@@ -18,13 +16,13 @@ fn part_one(input: &str) -> ((usize, Duration), Duration) {
 
 fn part_two(input: &str) -> ((usize, Duration), Duration) {
     let build_time = Instant::now();
-    let scan = InfiniteScan::new(input);
+    let scan = Scan::new(input, ScanType::Infinite);
     let build_time = build_time.elapsed();
 
     (get_solution(scan), build_time)
 }
 
-fn get_solution(mut scan: impl Scan) -> (usize, Duration) {
+fn get_solution(mut scan: Scan) -> (usize, Duration) {
     let simulation_time = Instant::now();
     scan.simulate();
     let simulation_time = simulation_time.elapsed();
