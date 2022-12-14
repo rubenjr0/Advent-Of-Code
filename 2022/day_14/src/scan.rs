@@ -1,3 +1,5 @@
+#[cfg(feature = "visualize")]
+use ::std::io::Write;
 use std::fmt::Display;
 
 use colorful::Colorful;
@@ -158,16 +160,22 @@ impl Scan {
     }
 
     pub fn simulate(&mut self) {
+        #[cfg(feature = "visualize")]
+        let mut lock = std::io::stdout().lock();
+        #[cfg(feature = "visualize")]
+        let mut frames = 0;
         loop {
-            #[cfg(feature = "visualize")]
-            {
-                if self.scan_type == ScanType::Finite {
-                    println!("{self}");
-                    std::thread::sleep(std::time::Duration::from_millis(16));
-                }
-            }
             if self.tick() {
                 break;
+            }
+            #[cfg(feature = "visualize")]
+            {
+                if self.scan_type == ScanType::Finite && frames % 75 == 0 {
+                    lock.write_all(format!("{self}").as_bytes()).unwrap();
+                    std::thread::sleep(std::time::Duration::from_millis(14));
+                }
+
+                frames += 1;
             }
         }
     }
