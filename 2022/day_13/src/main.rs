@@ -6,9 +6,9 @@ use std::{
 use eyre::Result;
 use serde_json::{json, Value};
 
-type Blocks = Vec<Vec<Vec<Value>>>;
+type Blocks = Vec<Vec<Value>>;
 
-fn compare_blocks(left: &Vec<Value>, right: &Vec<Value>) -> Ordering {
+fn compare_blocks(left: &Value, right: &Value) -> Ordering {
     let mut idx = 0;
     loop {
         let left = left.get(idx);
@@ -38,7 +38,7 @@ fn compare_blocks(left: &Vec<Value>, right: &Vec<Value>) -> Ordering {
             } else if !left.is_array() && right.is_array() {
                 left = json!([left]);
             }
-            match compare_blocks(left.as_array().unwrap(), right.as_array().unwrap()) {
+            match compare_blocks(&left, &right) {
                 Ordering::Equal => (),
                 ord => return ord,
             }
@@ -54,7 +54,7 @@ fn parse_blocks(input: &str) -> (Blocks, Duration) {
         .map(|block| {
             block
                 .lines()
-                .map(|b| serde_json::from_str::<Vec<Value>>(b).unwrap())
+                .map(|b| serde_json::from_str::<Value>(b).unwrap())
                 .collect::<Vec<_>>()
         })
         .collect();
@@ -76,18 +76,18 @@ fn part_one(blocks: &Blocks) -> (usize, Duration) {
 }
 
 fn part_two(blocks: &Blocks) -> (usize, Duration) {
-    let div_2 = serde_json::from_str::<Vec<Value>>("[[2]]").unwrap();
-    let div_6 = serde_json::from_str::<Vec<Value>>("[[6]]").unwrap();
+    let div_2 = serde_json::from_str::<Value>("[[2]]").unwrap();
+    let div_6 = serde_json::from_str::<Value>("[[6]]").unwrap();
 
     let dividers = &vec![div_2.clone(), div_6.clone()];
     let solution_time = Instant::now();
     let mut packets: Vec<_> = blocks.into_iter().flatten().chain(dividers).collect();
     packets.sort_by(|a, b| compare_blocks(a, b));
     let mut decoder_key = 1;
-    for (idx, packet) in packets.into_iter().enumerate() {
-        if packet == &div_2 || packet == &div_6 {
+    for (idx, packet) in packets.iter().enumerate() {
+        if packet == &&div_2 || packet == &&div_6 {
             decoder_key *= idx + 1;
-            if packet == &div_6 {
+            if packet == &&div_6 {
                 break;
             }
         }
