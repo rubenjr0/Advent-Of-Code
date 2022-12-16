@@ -68,12 +68,7 @@ fn compute_row_coverage(sensors: &Vec<Sensor>, beacons: &Vec<Coord>, row: isize)
         .par_iter()
         .filter(|s| s.position.y == row)
         .map(|s| s.position.x)
-        .chain(
-            beacons
-                .par_iter()
-                .filter(|Coord { x: _, y }| y == &row)
-                .map(|Coord { x, y: _ }| *x),
-        )
+        .chain(beacons.par_iter().filter(|p| p.y == row).map(|p| p.x))
         .collect();
     slices
         .into_par_iter()
@@ -87,18 +82,11 @@ fn compute_row_coverage(sensors: &Vec<Sensor>, beacons: &Vec<Coord>, row: isize)
 }
 
 fn part_two(sensors: &Vec<Sensor>, space: isize) -> Option<Coord> {
-    for sensor in sensors {
-        let mut iter = sensor.iter();
-        while let Some(p) = iter.next() {
-            if p.x < 0 || p.y < 0 || p.x > space || p.y > space {
-                continue;
-            }
-            if !sensors.iter().any(|s| s.contains(&p)) {
-                return Some(p);
-            }
-        }
-    }
-    None
+    sensors.par_iter().find_map_any(|s| {
+        s.iter()
+            .filter(|p| (0 <= p.x && p.x <= space) && (0 <= p.y && p.y <= space))
+            .find(|p| !sensors.iter().any(|s| s.contains(&p)))
+    })
 }
 
 fn main() {
