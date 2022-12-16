@@ -6,39 +6,6 @@ mod t;
 
 type Coord = (isize, isize);
 
-#[derive(Debug)]
-struct BoundingBox {
-    cx: isize,
-    cy: isize,
-    top: isize,
-    right: isize,
-    bottom: isize,
-    left: isize,
-}
-
-impl BoundingBox {
-    fn new((x, y): Coord, d: usize) -> Self {
-        let d = d as isize;
-        Self {
-            cx: x,
-            cy: y,
-            top: y + d,
-            right: x + d,
-            bottom: y - d,
-            left: x - d,
-        }
-    }
-
-    fn iter(&self) -> BoundingBoxIterator {
-        BoundingBoxIterator {
-            bounding_box: self,
-            x: self.cx,
-            y: self.top + 1,
-            status: BoundingBoxIterationStatus::Started,
-        }
-    }
-}
-
 enum BoundingBoxIterationStatus {
     Started,
     BottomRight,
@@ -48,14 +15,15 @@ enum BoundingBoxIterationStatus {
     Done,
 }
 
-struct BoundingBoxIterator<'a> {
-    bounding_box: &'a BoundingBox,
+struct BoundingBoxIterator {
+    cx: isize,
+    cy: isize,
     x: isize,
     y: isize,
     status: BoundingBoxIterationStatus,
 }
 
-impl<'a> Iterator for BoundingBoxIterator<'a> {
+impl Iterator for BoundingBoxIterator {
     type Item = Coord;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -66,28 +34,28 @@ impl<'a> Iterator for BoundingBoxIterator<'a> {
             BoundingBoxIterationStatus::BottomRight => {
                 self.x += 1;
                 self.y -= 1;
-                if self.y == self.bounding_box.cy {
+                if self.y == self.cy {
                     self.status = BoundingBoxIterationStatus::BottomLeft
                 }
             }
             BoundingBoxIterationStatus::BottomLeft => {
                 self.x -= 1;
                 self.y -= 1;
-                if self.x == self.bounding_box.cx {
+                if self.x == self.cx {
                     self.status = BoundingBoxIterationStatus::TopLeft
                 }
             }
             BoundingBoxIterationStatus::TopLeft => {
                 self.x -= 1;
                 self.y += 1;
-                if self.y == self.bounding_box.cy {
+                if self.y == self.cy {
                     self.status = BoundingBoxIterationStatus::TopRight
                 }
             }
             BoundingBoxIterationStatus::TopRight => {
                 self.x += 1;
                 self.y += 1;
-                if self.x == self.bounding_box.cx {
+                if self.x == self.cx {
                     self.status = BoundingBoxIterationStatus::Done
                 }
             }
@@ -102,7 +70,6 @@ struct Sensor {
     x: isize,
     y: isize,
     distance: usize,
-    bounding_box: BoundingBox,
 }
 
 impl Sensor {
@@ -112,7 +79,6 @@ impl Sensor {
             x: sc.0,
             y: sc.1,
             distance,
-            bounding_box: BoundingBox::new(sc, distance),
         }
     }
 
@@ -121,11 +87,21 @@ impl Sensor {
     }
 
     fn slice_at_row(&self, row: isize) -> Option<RangeInclusive<isize>> {
-        if self.bounding_box.top < row || row < self.bounding_box.bottom {
+        if self.y + (self.distance as isize) < row || row < self.y - self.distance as isize {
             None
         } else {
             let h = self.y.abs_diff(row).abs_diff(self.distance);
             Some(self.x - h as isize..=self.x + h as isize)
+        }
+    }
+
+    fn iter(&self) -> BoundingBoxIterator {
+        BoundingBoxIterator {
+            cx: self.x,
+            cy: self.y,
+            x: self.x,
+            y: self.y + self.distance as isize + 1,
+            status: BoundingBoxIterationStatus::Started,
         }
     }
 }
@@ -219,7 +195,7 @@ fn compute_row_coverage(sensors: &Vec<Sensor>, beacons: &Vec<Coord>, row: isize)
 
 fn part_two(sensors: &Vec<Sensor>, space: isize) -> Option<Coord> {
     for sensor in sensors {
-        for p in sensor.bounding_box.iter() {
+        for p in sensor.iter() {
             if p.0 < 0 || p.1 < 0 || p.0 > space || p.1 > space {
                 continue;
             }
@@ -267,7 +243,7 @@ mod tests {
     #[test]
     fn test_borders() {
         let sensor = dbg!(Sensor::new((0, 0), (0, 2)));
-        let points: Vec<_> = sensor.bounding_box.iter().collect();
+        let points: Vec<_> = sensor.iter().collect();
         assert!(points.len() == 13);
         assert!(!points.into_iter().any(|p| sensor.contains(p)))
     }
