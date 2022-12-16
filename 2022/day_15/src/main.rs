@@ -1,161 +1,296 @@
+use std::{collections::HashSet, ops::RangeInclusive};
+
 use rayon::prelude::*;
 
 mod t;
 
-type Unit = isize;
-type UUnit = usize;
-type Coord = (Unit, Unit);
+type Coord = (isize, isize);
 
 #[derive(Debug)]
-struct SensorCoverage {
-    sensor: Coord,
-    beacon: Coord,
-    distance: UUnit,
+struct BoundingBox {
+    cx: isize,
+    cy: isize,
+    top: isize,
+    right: isize,
+    bottom: isize,
+    left: isize,
 }
 
-#[derive(Debug, PartialEq)]
-enum Coverage {
-    Sensor,
-    Beacon,
-    Free,
-    Covered,
-}
+impl BoundingBox {
+    fn new((x, y): Coord, d: usize) -> Self {
+        let d = d as isize;
+        Self {
+            cx: x,
+            cy: y,
+            top: y + d,
+            right: x + d,
+            bottom: y - d,
+            left: x - d,
+        }
+    }
 
-impl SensorCoverage {
-    fn new(sensor: Coord, beacon: Coord) -> SensorCoverage {
-        SensorCoverage {
-            sensor,
-            beacon,
-            distance: manhattan_distance(&sensor, &beacon),
+    fn iter(&self) -> BoundingBoxIterator {
+        BoundingBoxIterator {
+            bounding_box: self,
+            x: self.cx,
+            y: self.top + 1,
+            status: BoundingBoxIterationStatus::Started,
         }
     }
 }
 
-fn manhattan_distance((x1, y1): &Coord, (x2, y2): &Coord) -> UUnit {
-    x1.abs_diff(*x2) + y1.abs_diff(*y2)
+enum BoundingBoxIterationStatus {
+    Started,
+    BottomRight,
+    BottomLeft,
+    TopLeft,
+    TopRight,
+    Done,
 }
 
-fn parse_entry(input: &str) -> (Coord, Coord) {
-    let input = input.replace(':', ",");
-    let mut ns = input
-        .split('=')
-        .skip(1)
-        .map(|p| p.split(',').next().unwrap());
-    (
-        (
-            ns.next().unwrap().parse().unwrap(),
-            ns.next().unwrap().parse().unwrap(),
-        ),
-        (
-            ns.next().unwrap().parse().unwrap(),
-            ns.next().unwrap().parse().unwrap(),
-        ),
-    )
+struct BoundingBoxIterator<'a> {
+    bounding_box: &'a BoundingBox,
+    x: isize,
+    y: isize,
+    status: BoundingBoxIterationStatus,
 }
 
-fn is_in_range(pair: &SensorCoverage, target_row: Unit) -> bool {
-    target_row.abs_diff(pair.sensor.1) <= pair.distance
-}
+impl<'a> Iterator for BoundingBoxIterator<'a> {
+    type Item = Coord;
 
-fn parse_data(input: &str) -> Vec<SensorCoverage> {
-    input
-        .lines()
-        .map(|l| {
-            let (sensor, beacon) = parse_entry(l);
-            SensorCoverage::new(sensor, beacon)
-        })
-        .collect()
-}
-
-fn compute_row_coverage(data: &Vec<SensorCoverage>, row: Unit) -> (Vec<Coverage>, Unit, Unit) {
-    let filtered_data: Vec<&SensorCoverage> = data
-        .par_iter()
-        .filter(move |p| is_in_range(p, row))
-        .collect();
-    let max_coverage = filtered_data.iter().map(|p| p.distance).max().unwrap() as Unit;
-    let x_min = filtered_data
-        .par_iter()
-        .map(|p| p.sensor.0.min(p.beacon.0))
-        .min()
-        .unwrap()
-        - max_coverage;
-    let x_max = filtered_data
-        .par_iter()
-        .map(|p| p.sensor.0.max(p.beacon.0))
-        .max()
-        .unwrap()
-        + max_coverage;
-    let coverage: Vec<_> = (x_min..=x_max)
-        .into_par_iter()
-        .map(|x| {
-            let mut status = Coverage::Free;
-            for s in filtered_data.iter().filter(|s| {
-                (s.sensor.0 - s.distance as Unit..=s.sensor.0 + s.distance as Unit).contains(&x)
-            }) {
-                if s.beacon.1 == row && s.beacon.0 == x {
-                    status = Coverage::Beacon
-                } else if s.sensor.1 == row && s.sensor.0 == x {
-                    status = Coverage::Sensor
-                } else if manhattan_distance(&s.sensor, &(x, row)) <= s.distance {
-                    status = Coverage::Covered
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.status {
+            BoundingBoxIterationStatus::Started => {
+                self.status = BoundingBoxIterationStatus::BottomRight
+            }
+            BoundingBoxIterationStatus::BottomRight => {
+                self.x += 1;
+                self.y -= 1;
+                if self.y == self.bounding_box.cy {
+                    self.status = BoundingBoxIterationStatus::BottomLeft
                 }
             }
-            status
-        })
+            BoundingBoxIterationStatus::BottomLeft => {
+                self.x -= 1;
+                self.y -= 1;
+                if self.x == self.bounding_box.cx {
+                    self.status = BoundingBoxIterationStatus::TopLeft
+                }
+            }
+            BoundingBoxIterationStatus::TopLeft => {
+                self.x -= 1;
+                self.y += 1;
+                if self.y == self.bounding_box.cy {
+                    self.status = BoundingBoxIterationStatus::TopRight
+                }
+            }
+            BoundingBoxIterationStatus::TopRight => {
+                self.x += 1;
+                self.y += 1;
+                if self.x == self.bounding_box.cx {
+                    self.status = BoundingBoxIterationStatus::Done
+                }
+            }
+            BoundingBoxIterationStatus::Done => return None,
+        }
+        Some((self.x, self.y))
+    }
+}
+
+#[derive(Debug)]
+struct Sensor {
+    x: isize,
+    y: isize,
+    distance: usize,
+    bounding_box: BoundingBox,
+}
+
+impl Sensor {
+    fn new(sc: Coord, bc: Coord) -> Self {
+        let distance = manhattan_distance(sc, bc);
+        Self {
+            x: sc.0,
+            y: sc.1,
+            distance,
+            bounding_box: BoundingBox::new(sc, distance),
+        }
+    }
+
+    fn contains(&self, p: Coord) -> bool {
+        manhattan_distance((self.x, self.y), p) <= self.distance
+    }
+
+    fn slice_at_row(&self, row: isize) -> Option<RangeInclusive<isize>> {
+        if self.bounding_box.top < row || row < self.bounding_box.bottom {
+            None
+        } else {
+            let h = self.y.abs_diff(row).abs_diff(self.distance);
+            Some(self.x - h as isize..=self.x + h as isize)
+        }
+    }
+}
+
+fn manhattan_distance((x1, y1): Coord, (x2, y2): Coord) -> usize {
+    x1.abs_diff(x2) + y1.abs_diff(y2)
+}
+
+fn parse_entry(input: &str) -> (Sensor, Coord) {
+    let input = input.replace(':', ",");
+    let mut xs = input
+        .split("x=")
+        .skip(1)
+        .map(|p| p.split(',').next().unwrap());
+    let mut ys = input
+        .split("y=")
+        .skip(1)
+        .map(|p| p.split(',').next().unwrap());
+    let sc = (
+        xs.next().unwrap().parse().unwrap(),
+        ys.next().unwrap().parse().unwrap(),
+    );
+    let bc = (
+        xs.next().unwrap().parse().unwrap(),
+        ys.next().unwrap().parse().unwrap(),
+    );
+    let sensor = Sensor::new(sc, bc);
+    (sensor, bc)
+}
+
+fn parse_data(input: &str) -> (Vec<Sensor>, Vec<Coord>) {
+    let mut sensors = vec![];
+    let mut beacons = vec![];
+    input.lines().for_each(|l| {
+        let (sensor, beacon) = parse_entry(l);
+        sensors.push(sensor);
+        beacons.push(beacon);
+    });
+    (sensors, beacons)
+}
+
+fn merge_slices(mut slices: Vec<RangeInclusive<isize>>) -> Vec<RangeInclusive<isize>> {
+    slices.sort_by_key(|r| *r.start());
+    let mut slices = slices.iter();
+    let mut merged_slices = Vec::new();
+    let first = slices.next().unwrap();
+    let mut current_start = first.start();
+    let mut current_end = first.end();
+    while let Some(next) = slices.next() {
+        if current_end > next.end() {
+            continue;
+        } else if current_end >= &(next.start() - 1) {
+            current_end = next.end();
+        } else {
+            merged_slices.push(*current_start..=*current_end);
+            current_start = next.start();
+            current_end = next.end();
+        }
+    }
+    merged_slices.push(*current_start..=*current_end);
+    merged_slices
+}
+
+fn compute_row_coverage(sensors: &Vec<Sensor>, beacons: &Vec<Coord>, row: isize) -> usize {
+    let slices: Vec<_> = sensors
+        .par_iter()
+        .flat_map(|s| s.slice_at_row(row))
         .collect();
-    (coverage, x_min, x_max)
+    let slices = merge_slices(slices);
+    let obstructed: HashSet<_> = sensors
+        .par_iter()
+        .filter(|s| s.y == row)
+        .map(|s| s.x)
+        .chain(
+            beacons
+                .par_iter()
+                .filter(|(_, y)| y == &row)
+                .map(|(x, _)| *x),
+        )
+        .collect();
+    slices
+        .into_par_iter()
+        .map(|range| {
+            range
+                .into_par_iter()
+                .map(|x| if obstructed.contains(&x) { 0 } else { 1 })
+                .sum::<usize>()
+        })
+        .sum()
 }
 
-fn part_one(data: &Vec<SensorCoverage>, target_row: Unit) -> usize {
-    let (coverage, _, _) = compute_row_coverage(data, target_row);
-    coverage.iter().filter(|b| b == &&Coverage::Covered).count()
-}
-
-fn part_two(data: &Vec<SensorCoverage>, space: UUnit) -> Option<UUnit> {
-    (0..=space).into_par_iter().find_map_any(|y| {
-        let (row, x_min, _) = compute_row_coverage(data, y as isize);
-        let idx_z = if x_min < 0 { x_min.unsigned_abs() } else { 0 };
-        let idx_max = idx_z + space;
-        row[idx_z..idx_max]
-            .par_iter()
-            .enumerate()
-            .find_any(|(_, b)| b == &&Coverage::Free)
-            .and_then(|(x, _)| Some(4_000_000 * x + y))
-    })
+fn part_two(sensors: &Vec<Sensor>, space: isize) -> Option<Coord> {
+    for sensor in sensors {
+        for p in sensor.bounding_box.iter() {
+            if p.0 < 0 || p.1 < 0 || p.0 > space || p.1 > space {
+                continue;
+            }
+            if !sensors.iter().any(|s| s.contains(p)) {
+                return Some(p);
+            }
+        }
+    }
+    None
 }
 
 fn main() {
     let input = include_str!("../input.txt");
-    let data = timeit!(parse_data(input), "parse_data");
-    let solution = timeit!(part_one(&data, 2000000), "part one");
-    assert_eq!(solution, 5073496);
-    println!("Part one: {solution}");
+    let ((sensors, beacons), t_parsing) = timeit!(parse_data(input));
+    println!("Data parsed in {t_parsing:?}");
 
-    if let Some(tf) = timeit!(part_two(&data, 4_000_000), "part_two") {
-        println!("{tf}");
-    } else {
-        eprintln!("fuck");
-    }
+    let (solution, t_solution) = timeit!(compute_row_coverage(&sensors, &beacons, 2000000));
+    assert_eq!(solution, 5073496);
+    println!("Part one");
+    println!(" - Solution {solution} found in {t_solution:?}\n");
+
+    let (Some((x, y)), t_solution) = timeit!(part_two(&sensors, 4_000_000)) else {
+        panic!("Couldn't find a solution!");
+    };
+    let solution = 4_000_000 * x + y;
+    assert_eq!(solution, 13081194638237);
+    println!("Part two");
+    eprintln!(" - Distress beacon found at ({x}, {y})");
+    eprintln!(" - Solution {solution} found in {t_solution:?}");
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_data, part_one, part_two};
+    use crate::{compute_row_coverage, merge_slices, parse_data, part_two, Sensor};
+
+    #[test]
+    fn test_slice() {
+        let sensor = dbg!(Sensor::new((0, 0), (1, 3)));
+        assert_eq!(sensor.slice_at_row(2), Some(-2..=2));
+        assert_eq!(sensor.slice_at_row(-3), Some(-1..=1));
+        assert_eq!(sensor.slice_at_row(4), Some(0..=0));
+        assert!(sensor.slice_at_row(-10).is_none());
+    }
+
+    #[test]
+    fn test_borders() {
+        let sensor = dbg!(Sensor::new((0, 0), (0, 2)));
+        let points: Vec<_> = sensor.bounding_box.iter().collect();
+        assert!(points.len() == 13);
+        assert!(!points.into_iter().any(|p| sensor.contains(p)))
+    }
+
+    #[test]
+    fn test_merge_slices() {
+        let slices = vec![12..=12, 2..=14, 2..=2, -2..=2, 16..=24, 14..=18];
+        assert_eq!(merge_slices(slices), vec![-2..=24]);
+    }
 
     #[test]
     fn test_part_one() {
         let input = include_str!("../test.txt");
-        let data = parse_data(input);
-        let solution = part_one(&data, 10);
+        let (sensors, beacons) = parse_data(input);
+        let solution = compute_row_coverage(&sensors, &beacons, 10);
         assert_eq!(solution, 26);
     }
 
     #[test]
     fn test_part_two() {
         let input = include_str!("../test.txt");
-        let data = parse_data(input);
-        let solution = part_two(&data, 20);
-        assert!(solution.is_some());
-        assert_eq!(solution.unwrap(), 56000011);
+        let (sensors, _) = parse_data(input);
+        let solution = part_two(&sensors, 20);
+        assert_eq!(solution, Some((14, 11)));
     }
 }
