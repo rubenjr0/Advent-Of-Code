@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::RangeInclusive};
+use std::ops::RangeInclusive;
 
 use coord::Coord;
 use rayon::prelude::*;
@@ -9,7 +9,7 @@ mod coord;
 mod sensor;
 mod t;
 
-fn parse_entry(input: &str) -> (Sensor, Coord) {
+fn parse_entry(input: &str) -> Sensor {
     let input = input.replace(':', ",");
     let mut xs = input
         .split("x=")
@@ -22,18 +22,16 @@ fn parse_entry(input: &str) -> (Sensor, Coord) {
     let sc = Coord::parse(&mut xs, &mut ys);
     let bc = Coord::parse(&mut xs, &mut ys);
     let sensor = Sensor::new(sc, &bc);
-    (sensor, bc)
+    sensor
 }
 
-fn parse_data(input: &str) -> (Vec<Sensor>, Vec<Coord>) {
+fn parse_data(input: &str) -> Vec<Sensor> {
     let mut sensors = vec![];
-    let mut beacons = vec![];
     input.lines().for_each(|l| {
-        let (sensor, beacon) = parse_entry(l);
+        let sensor = parse_entry(l);
         sensors.push(sensor);
-        beacons.push(beacon);
     });
-    (sensors, beacons)
+    sensors
 }
 
 fn merge_slices(mut slices: Vec<RangeInclusive<isize>>) -> Vec<RangeInclusive<isize>> {
@@ -58,27 +56,20 @@ fn merge_slices(mut slices: Vec<RangeInclusive<isize>>) -> Vec<RangeInclusive<is
     merged_slices
 }
 
-fn compute_row_coverage(sensors: &Vec<Sensor>, beacons: &Vec<Coord>, row: isize) -> usize {
-    let slices: Vec<_> = sensors
+fn compute_row_coverage(sensors: &Vec<Sensor>, row: isize) -> usize {
+    let slices = sensors
         .par_iter()
         .flat_map(|s| s.slice_at_row(row))
         .collect();
-    let slices = merge_slices(slices);
-    let obstructed: HashSet<_> = sensors
-        .par_iter()
-        .filter(|s| s.position.y == row)
-        .map(|s| s.position.x)
-        .chain(beacons.par_iter().filter(|p| p.y == row).map(|p| p.x))
-        .collect();
-    slices
-        .into_par_iter()
-        .map(|range| {
-            range
-                .into_par_iter()
-                .map(|x| if obstructed.contains(&x) { 0 } else { 1 })
-                .sum::<usize>()
-        })
-        .sum()
+    let ranges = merge_slices(slices);
+    ranges
+        .iter()
+        .map(|range| range.end() - range.start())
+        .sum::<isize>() as usize
+}
+
+fn part_one(sensors: &Vec<Sensor>, row: isize) -> usize {
+    compute_row_coverage(&sensors, row)
 }
 
 fn part_two(sensors: &Vec<Sensor>, space: isize) -> Option<Coord> {
@@ -91,10 +82,10 @@ fn part_two(sensors: &Vec<Sensor>, space: isize) -> Option<Coord> {
 
 fn main() {
     let input = include_str!("../input.txt");
-    let ((sensors, beacons), t_parsing) = timeit!(parse_data(input));
+    let (sensors, t_parsing) = timeit!(parse_data(input));
     println!("Data parsed in {t_parsing:?}");
 
-    let (solution, t_solution) = timeit!(compute_row_coverage(&sensors, &beacons, 2000000));
+    let (solution, t_solution) = timeit!(part_one(&sensors, 2000000));
     assert_eq!(solution, 5073496);
     println!("Part one");
     println!(" - Solution {solution} found in {t_solution:?}\n");
@@ -111,7 +102,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use crate::{compute_row_coverage, coord::Coord, merge_slices, parse_data, part_two, Sensor};
+    use crate::{coord::Coord, merge_slices, parse_data, part_one, part_two, Sensor};
 
     #[test]
     fn test_slice() {
@@ -139,15 +130,15 @@ mod tests {
     #[test]
     fn test_part_one() {
         let input = include_str!("../test.txt");
-        let (sensors, beacons) = parse_data(input);
-        let solution = compute_row_coverage(&sensors, &beacons, 10);
+        let sensors = parse_data(input);
+        let solution = part_one(&sensors, 10);
         assert_eq!(solution, 26);
     }
 
     #[test]
     fn test_part_two() {
         let input = include_str!("../test.txt");
-        let (sensors, _) = parse_data(input);
+        let sensors = parse_data(input);
         let solution = part_two(&sensors, 20);
         let expected = Coord { x: 14, y: 11 };
         assert_eq!(solution, Some(expected));

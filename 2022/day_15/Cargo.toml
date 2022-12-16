@@ -13,3 +13,9 @@ lto = true
 opt-level = 2
 codegen-units = 1
 strip = true
+
+# Set the default for dependencies.
+[profile.release.package."*"]
+opt-level = 3
+codegen-units = 1
+strip = true
