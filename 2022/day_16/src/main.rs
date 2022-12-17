@@ -1,16 +1,7 @@
-use core::time;
-use std::{
-    collections::{HashMap, HashSet, VecDeque},
-    fmt::Display,
-    thread,
-    time::Duration,
-};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use pathfinding::{
-    num_traits::Pow,
-    prelude::{directions::S, *},
-};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use pathfinding::prelude::*;
+use rayon::prelude::*;
 
 #[derive(Debug, PartialEq, Clone)]
 enum ValveStatus {
@@ -21,13 +12,13 @@ enum ValveStatus {
 #[derive(Debug, Clone)]
 struct Valve {
     id: String,
-    flow_rate: isize,
+    flow_rate: usize,
     connections: Vec<String>,
     status: ValveStatus,
 }
 
 impl Valve {
-    fn new(id: &str, flow_rate: isize, connections: Vec<&str>) -> Self {
+    fn new(id: &str, flow_rate: usize, connections: Vec<&str>) -> Self {
         Self {
             id: String::from(id),
             flow_rate,
@@ -58,6 +49,14 @@ impl Valve {
         Self::new(id, flow_rate, connections)
     }
 
+    fn is_open(&self) -> bool {
+        self.status == ValveStatus::Open
+    }
+
+    fn works(&self) -> bool {
+        self.flow_rate > 0
+    }
+
     fn open_valve(&mut self) {
         self.status = ValveStatus::Open;
     }
@@ -67,15 +66,16 @@ impl Valve {
 struct Maze {
     valves: Vec<Valve>,
     current_valve_id: String,
-    minutes_left: isize,
+    minutes_left: usize,
     released_pressure: usize,
     _parents: HashMap<String, String>,
-    _vertices: Vec<String>,
+    _vertices: HashSet<String>,
 }
 
 impl Maze {
     fn parse(input: &str) -> Maze {
-        let valves = input.lines().map(|l| Valve::parse(l)).collect();
+        let valves: Vec<Valve> = input.lines().map(|l| Valve::parse(l)).collect();
+        let vertices = valves.iter().map(|v| v.id.clone()).collect();
         let parents = Self::build_parent_set(&valves);
 
         Maze {
@@ -84,7 +84,7 @@ impl Maze {
             minutes_left: 30,
             released_pressure: 0,
             _parents: parents,
-            _vertices: vec![],
+            _vertices: vertices,
         }
     }
 
@@ -120,19 +120,6 @@ impl Maze {
         self.valves.iter_mut().find(|v| v.id == id).unwrap()
     }
 
-    fn move_to(&mut self, destination_id: String) {
-        self.tick();
-        println!("You move to valve {destination_id}");
-        self.current_valve_id = destination_id.clone();
-    }
-
-    fn open(&mut self) {
-        self.tick();
-        println!("Opening {}", self.current_valve_id);
-        let destination = self.get_valve_mut(&self.current_valve_id.clone());
-        destination.open_valve();
-    }
-
     fn tick(&mut self) {
         eprintln!(
             "\n== Minute {} @ {}",
@@ -141,205 +128,124 @@ impl Maze {
         );
         let mut rel = 0;
         self.valves.iter().for_each(|v| {
-            if v.status == ValveStatus::Open {
+            if v.is_open() {
                 rel += v.flow_rate as usize;
             }
         });
         self.released_pressure += rel;
         eprint!("Valves ");
-        self.valves
-            .iter()
-            .filter(|v| v.status == ValveStatus::Open)
-            .for_each(|v| {
-                eprint!("{} ", v.id);
-            });
+        self.valves.iter().filter(|v| v.is_open()).for_each(|v| {
+            eprint!("{} ", v.id);
+        });
         eprintln!("are open, releasing {rel} pressure");
         self.minutes_left -= 1;
     }
 
-    fn solve(&mut self) -> Solution {
-        let solution = self.backtrack(
-            Solution::new(30, self.valves.iter().filter(|v| v.flow_rate > 0).count()),
-            0,
-        );
-        eprintln!("Solution: {solution:?}");
-        solution
+    fn shortest_path_from_to(&self, from: &String, to: &String) -> Option<Vec<String>> {
+        if let Some((mut path, _)) = dijkstra(
+            from,
+            |id| {
+                self.get_valve(id)
+                    .connections
+                    .iter()
+                    .map(|s| (s.to_string(), 1))
+            },
+            |id| id == to,
+        ) {
+            path.remove(0);
+            Some(path.iter().map(|s| s.to_string()).collect())
+        } else {
+            None
+        }
     }
 
-    fn backtrack<'a>(&'a self, current: Solution, depth: usize) -> Solution {
-        let is_target = current.actions
-            == vec![
-                Action::Move("DD".to_string()),
-                Action::Open("DD".to_string()),
-                Action::Move("CC".to_string()),
-                /*
-                Action::Move("BB".to_string()),
-                Action::Open("BB".to_string()),
-                Action::Move("AA".to_string()),
-                Action::Move("II".to_string()),
-                Action::Move("JJ".to_string()),
-                Action::Open("JJ".to_string()), */
-            ];
-        if is_target {
-            eprintln!(
-                "{:?}, open? [{:?} -> {}]",
-                current,
-                current.actions.last().unwrap(),
-                current.actions.last().unwrap().is_open(),
-            );
-            thread::sleep(Duration::from_secs(1));
-        }
-
-        if current.remaining_minutes == 0 {
-            return current;
-        }
-
-        let mut best = current.clone();
-        let position = &current._position;
-        let valve = self.get_valve(position).clone();
-        let remaining_minutes = current.remaining_minutes - 1;
-        let released = current.released + current.rate;
-        let is_open = current
-            .actions
-            .iter()
-            .any(|a| a.contains(&current._position) && a.is_open());
-        if is_target {
-            dbg!(is_open);
-            thread::sleep(Duration::from_secs(20));
-        }
-        if !is_open && valve.flow_rate > 0 {
-            let mut open_action = current.actions.clone();
-            open_action.push(Action::Open(current._position.clone()));
-            let open_solution = Solution {
-                actions: open_action,
-                released,
-                rate: current.rate + valve.flow_rate as usize,
-                remaining_minutes,
-                openable: current.openable - 1,
-                _position: current._position.clone(),
-            };
-            let open_solution = self.backtrack(open_solution, depth + 1);
-            if open_solution.released > best.released {
-                best = open_solution;
-                // eprintln!("New best: {best:?} (depth {depth})");
-            }
-        }
-        let mut best_candidates: Vec<_> = valve
-            .connections
-            .iter()
-            .map(|id| self.get_valve(id))
-            .collect();
-        best_candidates.sort_by(|a, b| b.flow_rate.cmp(&a.flow_rate));
-        let best_move = best_candidates
+    fn best_candidate(&self) -> Option<(String, f32, Vec<String>)> {
+        self._vertices
             .par_iter()
-            .map(|child| {
-                let mut move_action = current.actions.clone();
-                move_action.push(Action::Move(child.id.clone()));
-                let move_solution = Solution {
-                    actions: move_action,
-                    released,
-                    remaining_minutes,
-                    rate: current.rate,
-                    openable: current.openable,
-                    _position: child.id.clone(),
-                };
-                self.backtrack(move_solution, depth + 1)
+            .map(|id| self.get_valve(id))
+            .filter(|v| !v.is_open() && v.works() && v.id != self.current_valve_id)
+            .flat_map(|v| {
+                let shortest_path = self.shortest_path_from_to(&self.current_valve_id, &v.id);
+                if let Some(shortest_path) = shortest_path {
+                    if shortest_path.len() >= self.minutes_left {
+                        return None;
+                    }
+                    let candidate = (
+                        v.id.clone(),
+                        (v.flow_rate * (self.minutes_left - shortest_path.len() - 1)) as f32
+                            / ((shortest_path.len() + {
+                                let distances: Vec<_> = self
+                                    ._vertices
+                                    .par_iter()
+                                    .filter(|s| {
+                                        let c = self.get_valve(s);
+                                        c.is_open()
+                                            && c.works()
+                                            && c.id != v.id
+                                            && c.id != self.current_valve_id
+                                    })
+                                    .flat_map(|c| {
+                                        self.shortest_path_from_to(&v.id, c)
+                                            .and_then(|p| Some(p.len()))
+                                    })
+                                    .collect();
+                                distances.iter().sum::<usize>()
+                            }) as f32)
+                                .powf(
+                                    2. * self
+                                        ._vertices
+                                        .iter()
+                                        .filter(|v| !self.get_valve(v).is_open())
+                                        .count() as f32
+                                        / self._vertices.len() as f32,
+                                ),
+                        shortest_path,
+                    );
+                    eprintln!(
+                        " - [{}] Candidate: {:?}, rate: {}",
+                        self.current_valve_id, candidate, v.flow_rate
+                    );
+                    Some(candidate)
+                } else {
+                    None
+                }
             })
-            .max_by_key(|s| s.released);
-        if let Some(best_move) = best_move {
-            if best_move.released > best.released {
-                // eprintln!("New best: {best:?} (depth {depth})");
-                best = best_move
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+    }
+
+    fn solve(&mut self) {
+        loop {
+            if self.minutes_left == 0 {
+                break;
+            }
+            if let Some((best, _, path)) = self.best_candidate() {
+                // println!("Moving to {} with score {}", best, score);
+                path.iter().for_each(|step| {
+                    self.tick();
+                    println!("Moving to {step}");
+                });
+                self.tick();
+                println!("Opened {best}");
+                self.get_valve_mut(&best).open_valve();
+                self.current_valve_id = best;
+            } else {
+                self.tick();
             }
         }
-        best
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum Action {
-    Move(String),
-    Open(String),
-}
-
-impl Action {
-    fn is_open(&self) -> bool {
-        match self {
-            Self::Move(_) => false,
-            _ => true,
-        }
-    }
-    fn contains(&self, id: &String) -> bool {
-        match self {
-            Self::Move(id2) => id == id2,
-            Self::Open(id2) => id == id2,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Solution {
-    actions: Vec<Action>,
-    released: usize,
-    rate: usize,
-    remaining_minutes: usize,
-    openable: usize,
-    _position: String,
-}
-
-impl Solution {
-    fn new(remaining_minutes: usize, openable: usize) -> Self {
-        Self {
-            actions: vec![],
-            released: 0,
-            rate: 0,
-            remaining_minutes,
-            openable,
-            _position: "AA".to_string(),
-        }
-    }
-}
-
-impl Display for Solution {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(
-            f,
-            "[{:?}] - Released: {}, Rate: {}, Minutes left: {}, openable: {}, position: {}",
-            self.actions.last(),
-            self.released,
-            self.rate,
-            self.remaining_minutes,
-            self.openable,
-            self._position
-        )
     }
 }
 
 fn main() {
-    let input = include_str!("../test.txt");
+    let input = include_str!("../input.txt");
     let mut maze = Maze::parse(input);
-    'timer: loop {
-        /*  let mut best_path = maze.best_path();
-        while let Some(step) = best_path.pop() {
-            maze.move_to(step.clone());
-            if maze.minutes_left == 0 {
-                println!("You escaped with {} pressure", maze.released_pressure);
-                break 'timer;
-            }
-            if best_path.len() == 0 && maze.get_valve(&step).flow_rate > 0 {
-                maze.open();
-            }
-            if maze.minutes_left == 0 {
-                println!("You escaped with {} pressure", maze.released_pressure);
-                break 'timer;
-            }
-        } */
-        maze.solve();
+    maze.solve();
+    loop {
         break;
     }
-    /*   if maze.released_pressure <= 1897 {
+    dbg!(maze.released_pressure);
+    if maze.released_pressure <= 1897 {
         panic!("Too low")
     } else {
         println!("{} pressure", maze.released_pressure);
-    } */
+    }
 }
