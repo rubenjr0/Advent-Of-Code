@@ -1,15 +1,14 @@
 [package]
-name = "day_7"
+name = "day_13"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+eyre = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
 
-[profile.release]
-strip = true
-debug = false
-lto = true
-opt-level = 3
-codegen-units = 1
+[profile.dev]
+debug = 2

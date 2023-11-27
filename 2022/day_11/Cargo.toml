@@ -1,5 +1,5 @@
 [package]
-name = "day_7"
+name = "day_11"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,9 +7,6 @@ edition = "2021"
 
 [dependencies]
 
-[profile.release]
-strip = true
-debug = false
-lto = true
-opt-level = 3
-codegen-units = 1
+[features]
+debug = []
+bench = []

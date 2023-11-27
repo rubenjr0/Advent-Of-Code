@@ -108,8 +108,11 @@ fn deletion_candidate(node: &Node, target_space: usize) -> Option<&Node> {
             .filter(|n| n.is_directory() && n.size() >= target_space)
             .min_by_key(|n| n.size() - target_space)
         {
-            let candidate = deletion_candidate(best, target_space);
-            out = candidate.and_then(|c| if c.size() < node.size() { Some(c) } else { out });
+            if let Some(candidate) = deletion_candidate(best, target_space) {
+                if candidate.size() < node.size() {
+                    out = Some(candidate)
+                };
+            }
         }
     }
     out

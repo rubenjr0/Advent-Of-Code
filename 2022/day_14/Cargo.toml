@@ -1,15 +1,18 @@
 [package]
-name = "day_7"
+name = "day_14"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+colorful = "0.2.1"
+
+[features]
+visualize = []
 
 [profile.release]
-strip = true
-debug = false
-lto = true
 opt-level = 3
+lto = "thin"
+strip = true
 codegen-units = 1
